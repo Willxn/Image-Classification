@@ -1,179 +1,81 @@
 import cv2
 import numpy as np
-import os
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
 
+def increase_brightness(img, value=20):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
 
-# Function to load images and their labels
+    lim = 255 - value
+    v[v > lim] = 255
+    v[v <= lim] += value
+
+    final_hsv = cv2.merge((h, s, v))
+    brightened_img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return brightened_img
+
 
 import cv2
 import numpy as np
 
-def preprocess_image(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Apply Gaussian blur
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+import cv2
+import numpy as np
 
-    # Edge detection
-    edged = cv2.Canny(blur, 50, 200)
+import cv2
+import numpy as np
 
-    # Find contours
-    contours, _ = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Filter contours based on area and aspect ratio
-    sign_contours = []
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        x, y, w, h = cv2.boundingRect(cnt)
-        aspect_ratio = float(w) / h
+import cv2
+import numpy as np
 
-        # These thresholds can be adjusted to fit the specific size and aspect ratio of your signs
-        if area > 1000 and 0.75 < aspect_ratio < 1.33:
-            sign_contours.append(cnt)
+def crop(image):
+    img_h, img_w, _ = image.shape
+    gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    inverted_img = cv2.bitwise_not(gray_img)
 
-    # Assuming the largest contour after filtering is the sign
-    if sign_contours:
-        largest_contour = max(sign_contours, key=cv2.contourArea)
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        sign_roi = image[y:y + h, x:x + w]
-        return sign_roi
+    inverted_img[-int(img_h / 5):, :] = 0
+    dilated_img = cv2.dilate(inverted_img, np.ones((7, 7), np.uint8))
+    eroded_img = cv2.erode(dilated_img, np.ones((8, 8), np.uint8))
+
+    _, binary_img = cv2.threshold(eroded_img, 130, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(binary_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    valid_contours = [contour for contour in contours if cv2.contourArea(contour) > 200 and not (np.any(contour[:, :, 1] > img_h - 10) or np.any(contour[:, :, 1] < 10))]
+    valid_contours = sorted(valid_contours, key=cv2.contourArea, reverse=True)
+
+    closest_contour = None
+    if valid_contours:
+        closest_contour = min(valid_contours, key=lambda contour: abs(np.mean(contour[:, :, 1]) - img_h / 2))
+
+    if closest_contour is not None:
+        x, y, w, h = cv2.boundingRect(closest_contour)
+        cropped_img = image[y - 10 if y - 10 > 0 else 0:y + h + 10 if y + h + 10 < img_h else img_h, x - 10 if x - 10 > 0 else 0:x + w + 10 if x + w + 10 < img_w else img_w]
     else:
-        return image
+        cropped_img = np.zeros((30, 30, 3), dtype='uint8')
+
+    resized_img = cv2.resize(cropped_img, (40, 40), interpolation=cv2.INTER_LINEAR)
+    return resized_img
 
 
 
-def preprocess_and_display_image(image, display=False, save=False, save_path=None):
-    # 进行预处理
-    preprocessed_image = preprocess_image(image)  # 假设这个函数已经定义
+def main(image_path, value=20):
+    # 加载图像
+    img = cv2.imread(image_path)
+    if img is None:
+        print("Error: 图像未找到或无法读取。")
+        return
 
-    # 如果需要显示图像
-    if display:
-        cv2.imshow('Preprocessed Image', preprocessed_image)
-        cv2.waitKey(0)  # 等待按键后再继续
-        cv2.destroyAllWindows()
+    # 增加亮度
+    brightened_img = increase_brightness(img, value)
+    cropped_img = crop(brightened_img)
 
-    # 如果需要保存图像
-    if save and save_path is not None:
-        cv2.imwrite(save_path, preprocessed_image)
+    # 显示原图和增亮后的图像
+    cv2.imshow("Original Image", img)
+    cv2.imshow("Brightened Image", cropped_img)
 
-    return preprocessed_image
+    # 等待按键后关闭窗口
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-
-
-def load_images_and_labels(images_folder, labels_file_path):
-    labels = {}
-    with open(labels_file_path, 'r') as file:
-        for line in file:
-            # 使用逗号分隔文件名和标签
-            image_name, label = line.strip().split(', ')
-            # 删除文件名中的可能的空格，并添加.png后缀
-            image_name = image_name.strip() + '.png'
-            labels[image_name] = int(label.strip())
-    images = [(cv2.imread(os.path.join(images_folder, img_name)), lbl) for img_name, lbl in labels.items()]
-    return images
-
-
-# Function to preprocess images and extract features
-def extract_features(image):
-    # Convert to HSV color space for color invariance
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    # Extract color histogram in HSV space and flatten into a feature vector
-    hist = cv2.calcHist([hsv_image], [0, 1, 2], None, [8, 8, 8], [0, 180, 0, 256, 0, 256])
-    hist = cv2.normalize(hist, hist).flatten()
-    return hist
-
-# Function to create the feature matrix and label vector
-def create_feature_matrix_and_labels(images_with_labels):
-    feature_matrix = []
-    label_vector = []
-    for image, label in images_with_labels:
-        if image is not None:  # Only if the image was correctly loaded
-            # 应用预处理
-            preprocessed_image = preprocess_image(image)
-            features = extract_features(preprocessed_image)
-            feature_matrix.append(features)
-            label_vector.append(label)
-    return np.array(feature_matrix), np.array(label_vector)
-
-# Paths
-images_folder = '/Users/will/Documents/Spring24/ECE7785/7785_Lab6/2022Fimgs/'
-train_labels_file_path = os.path.join(images_folder, 'train.txt')
-test_labels_file_path = os.path.join(images_folder, 'test.txt')
-
-# Load training and testing data
-training_data = load_images_and_labels(images_folder, train_labels_file_path)
-testing_data = load_images_and_labels(images_folder, test_labels_file_path)
-
-# # 在处理图像的循环中调用该函数
-# for image_path, label in training_data:
-#     preprocessed_image = preprocess_and_display_image(
-#         image_path,
-#         display=True,  # 设置为True以显示图像
-#         save=True,  # 设置为True以保存图像
-#         save_path='/Users/will/Desktop/pics/' + str(label) + '.png'  # 确保label被转换为字符串
-#   # 指定保存路径
-#     )
-
-
-print(f"Loaded {len(training_data)} training images.")
-print(f"Loaded {len(testing_data)} testing images.")
-
-# Extract features and labels
-X_train, y_train = create_feature_matrix_and_labels(training_data)
-X_test, y_test = create_feature_matrix_and_labels(testing_data)
-
-# Normalize features
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
-
-# Train KNN classifier
-knn = KNeighborsClassifier(n_neighbors=2)
-knn.fit(X_train, y_train)
-
-# Evaluate the classifier
-train_accuracy = knn.score(X_train, y_train)
-test_accuracy = knn.score(X_test, y_test)
-
-print(f"Training Accuracy: {train_accuracy}")
-print(f"Test Accuracy: {test_accuracy}")
-
-from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC
-
-# 创建一个SVM模型并使用Pipeline包括预处理步骤
-pipeline = Pipeline([
-    ('scaler', StandardScaler()),  # 加入标准化步骤
-    ('svm', SVC())
-])
-
-# 更新参数网格，考虑Pipeline
-param_grid = {
-    'svm__C': [0.1, 1, 10, 100, 1000],
-    'svm__gamma': [0.001, 0.01, 0.1, 1, 'scale'],
-    'svm__kernel': ['rbf', 'linear'],
-    'svm__class_weight': [None, 'balanced']  # 处理不平衡数据
-}
-
-# 创建GridSearchCV对象
-grid_search = GridSearchCV(pipeline, param_grid, cv=10, verbose=2, n_jobs=-1)  # 使用更多的CPU核心
-
-# 在训练数据上执行网格搜索
-grid_search.fit(X_train, y_train)
-
-# 查看最佳参数
-print("Best parameters:", grid_search.best_params_)
-
-# 使用最佳参数的模型进行预测和评估
-best_pipeline = grid_search.best_estimator_
-train_accuracy = best_pipeline.score(X_train, y_train)
-test_accuracy = best_pipeline.score(X_test, y_test)
-
-print(f"Training Accuracy: {train_accuracy}")
-print(f"Test Accuracy: {test_accuracy}")
-
+# 使用实例：增亮'/path/to/your/image.jpg'
+main('./dataset/2023Fimgs/1.jpg')

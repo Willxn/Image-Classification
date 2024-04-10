@@ -22,7 +22,7 @@ trainDirectory = './dataset/2023Fimgs/'
 testDirectory = './dataset/2022Fheldout/'
 
 # KNN parameters
-k = 5
+k = 3
 dimension = 3  # image channel
 train = []
 test = []
@@ -30,34 +30,13 @@ test = []
 # Image processing parameters
 rgb = 1  # cv.imread mode
 
-morphKernel = 5  # Closing and Opening Kernel Size
-maxObjects = 1  # Max number of object to detect
-minObjectArea = 300  # Min number of pixels for an object to be recognized
-
-WHITE = [255, 255, 255]
-RED = [255, 0, 0]
-GREEN = [0, 255, 0]
-BLUE = [0, 0, 255]
-
-raw_h = 308
-raw_w = 410
-
-# Resize parameters
-resize_h_ratio = 0.1
-resize_w_ratio = 0.1
-resize_h = int(raw_h * resize_h_ratio)
-resize_w = int(raw_w * resize_w_ratio)
-
-# RGB filter parameters
-light_thresh = 60
-contrast = 30
-
 # Debug mode(Flags for displaying preprocessed image)
 debug = False
 
 # Flags for training and testing
-train_flag = False
+train_flag = True
 test_flag = True
+
 
 # Version check
 print("Your python version:", platform.python_version())
@@ -101,7 +80,7 @@ def crop(image):
     ret, thresh = cv2.threshold(gray, 130, 255, cv2.THRESH_BINARY)
     contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
-    pot_contours = [contour for contour in contours if len(contour) > 200 and not (np.any(contour.reshape(-1, 2)[:, 1] > h - border) or np.any(contour.reshape(-1, 2)[:, 1] < border))]
+    pot_contours = [contour for contour in contours if len(contour) > 150 and not (np.any(contour.reshape(-1, 2)[:, 1] > h - border) or np.any(contour.reshape(-1, 2)[:, 1] < border))]
     sorted_contours = sorted(pot_contours, key=cv2.contourArea, reverse=True)
     largest = sorted_contours[:3]
 
@@ -114,7 +93,7 @@ def crop(image):
         corner2 = np.min([np.max(c, axis=1) + 10, [w - 1, h - 1]], axis=0)
         cropped = image[int(corner1[1]):int(corner2[1]), int(corner1[0]):int(corner2[0])]
 
-    cropped = cv2.resize(cropped, (30, 30), interpolation=cv2.INTER_LINEAR)
+    cropped = cv2.resize(cropped, (40, 40), interpolation=cv2.INTER_LINEAR)
     return cropped
 
 
