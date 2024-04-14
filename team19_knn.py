@@ -16,8 +16,8 @@ import numpy as np
 ###############################################
 
 # Directory paths
-#trainDatasetDirectory = './dataset/2022Fimgs/'
-testDatasetDirectory = './dataset/2022Fheldout/'
+#trainDatasetDirectory = './dataset/2024Simgs/'
+testDatasetDirectory = './dataset/2024Simgs/'
 
 # KNN parameters
 k = 3
@@ -29,7 +29,7 @@ test = []
 debug = False
 
 # Flags for training and testing
-train_flag = False
+train_flag = True
 test_flag = True
 
 
@@ -65,7 +65,7 @@ def crop_image(image):
 
     valid_contours = [
         cnt for cnt in contours
-        if cnt.shape[0] > 150
+        if cnt.shape[0] > 100
         and not (
             np.any(cnt[:, :, 1] > h - exclusion_zone)
             or np.any(cnt[:, :, 1] < exclusion_zone)
@@ -94,30 +94,30 @@ def crop_image(image):
 #                     Train                      #
 ##################################################
 
-# if train_flag:
-#     data_path = f'{trainDatasetDirectory}train.txt'
-#     with open(data_path, 'r') as file:
-#         data_reader = csv.reader(file)
-#         data_lines = [line for line in data_reader]
-#
-#     training_images = []
-#     for data_line in data_lines:
-#         image_path = f"{trainDatasetDirectory}{data_line[0]}.png"
-#         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-#         preprocessed_image = preprocess(image)
-#         training_images.append(preprocessed_image)
-#
-#         if debug:
-#             cv2.imshow("Processed Image", preprocessed_image)
-#             cv2.waitKey(0)
-#             cv2.destroyAllWindows()
-#
-#     flattened_images = np.array(training_images).reshape(len(training_images), -1).astype(np.float32)
-#     labels = np.array([int(item[1]) for item in data_lines])
-#
-#     model = cv2.ml.KNearest_create()
-#     model.train(flattened_images, cv2.ml.ROW_SAMPLE, labels)
-#     model.save("Team19_Model.xml")
+if train_flag:
+    data_path = f'{trainDatasetDirectory}labels.txt'
+    with open(data_path, 'r') as file:
+        data_reader = csv.reader(file)
+        data_lines = [line for line in data_reader]
+
+    training_images = []
+    for data_line in data_lines:
+        image_path = f"{trainDatasetDirectory}{data_line[0]}.png"
+        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        preprocessed_image = preprocess(image)
+        training_images.append(preprocessed_image)
+
+        if debug:
+            cv2.imshow("Processed Image", preprocessed_image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+    flattened_images = np.array(training_images).reshape(len(training_images), -1).astype(np.float32)
+    labels = np.array([int(item[1]) for item in data_lines])
+
+    model = cv2.ml.KNearest_create()
+    model.train(flattened_images, cv2.ml.ROW_SAMPLE, labels)
+    model.save("Team19_Model.xml")
 
 
 ##################################################
