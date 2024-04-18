@@ -29,7 +29,7 @@ test = []
 debug = False
 
 # Flags for training and testing
-train_flag = True
+#train_flag = True
 test_flag = True
 
 
@@ -89,35 +89,41 @@ def crop_image(image):
     cropped = cv2.resize(cropped, (40, 40), interpolation=cv2.INTER_LINEAR)
     return cropped
 
+def predict(image):
+    knn_model = cv2.ml.KNearest_create().load("Team19_Model.xml")
+    preprocessed_img = preprocess(image)
+    img_vector = preprocessed_img.flatten().reshape(1, -1).astype(np.float32)
+    _, result, _, _ = knn_model.findNearest(img_vector, k)
+    return int(result[0, 0])
 
 ##################################################
 #                     Train                      #
 ##################################################
 
-if train_flag:
-    data_path = f'{trainDatasetDirectory}labels.txt'
-    with open(data_path, 'r') as file:
-        data_reader = csv.reader(file)
-        data_lines = [line for line in data_reader]
-
-    training_images = []
-    for data_line in data_lines:
-        image_path = f"{trainDatasetDirectory}{data_line[0]}.png"
-        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
-        preprocessed_image = preprocess(image)
-        training_images.append(preprocessed_image)
-
-        if debug:
-            cv2.imshow("Processed Image", preprocessed_image)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
-    flattened_images = np.array(training_images).reshape(len(training_images), -1).astype(np.float32)
-    labels = np.array([int(item[1]) for item in data_lines])
-
-    model = cv2.ml.KNearest_create()
-    model.train(flattened_images, cv2.ml.ROW_SAMPLE, labels)
-    model.save("Team19_Model.xml")
+# if train_flag:
+#     data_path = f'{trainDatasetDirectory}labels.txt'
+#     with open(data_path, 'r') as file:
+#         data_reader = csv.reader(file)
+#         data_lines = [line for line in data_reader]
+#
+#     training_images = []
+#     for data_line in data_lines:
+#         image_path = f"{trainDatasetDirectory}{data_line[0]}.png"
+#         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+#         preprocessed_image = preprocess(image)
+#         training_images.append(preprocessed_image)
+#
+#         if debug:
+#             cv2.imshow("Processed Image", preprocessed_image)
+#             cv2.waitKey(0)
+#             cv2.destroyAllWindows()
+#
+#     flattened_images = np.array(training_images).reshape(len(training_images), -1).astype(np.float32)
+#     labels = np.array([int(item[1]) for item in data_lines])
+#
+#     model = cv2.ml.KNearest_create()
+#     model.train(flattened_images, cv2.ml.ROW_SAMPLE, labels)
+#     model.save("Team19_Model.xml")
 
 
 ##################################################
